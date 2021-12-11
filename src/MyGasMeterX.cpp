@@ -6,7 +6,7 @@
  * Created		: 03-Oct-2019
  * Tabsize		: 4
  * 
- * This Revision: $Id: MyGasMeterX.cpp 1305 2021-12-09 08:47:13Z  $
+ * This Revision: $Id: MyGasMeterX.cpp 1314 2021-12-11 13:02:51Z  $
  */
 
 /*
@@ -70,6 +70,7 @@
 #include <util/delay.h>
 #include <util/atomic.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 // Arduino and 3rd party libraries
 #include <Arduino.h>
@@ -182,6 +183,8 @@ bool transportSleeping = false;
 
 #ifdef REPORT_CLIMATE
 
+void operator delete(void * ptr, size_t size) { free(ptr); }
+
 class MyBME280 : public Adafruit_BME280
 {
 	public:
@@ -202,7 +205,7 @@ void MyBME280::takeForcedMeasurementNoWait()
 //---------------------------------------------------------------------------
 
 /// !=0 if BME sensor found and initialized
-unsigned validBME = 0;
+bool validBME = 0;
 /// true if take measurement command sent/to be sent to sensor
 bool requestBME = false;
 
@@ -252,7 +255,8 @@ bool report_Climate()
 			send(msgHumidity.set(h,0));
 		}
 		DEBUG_PRINTF("T=%.1f  H=%.0f\r\n",t,h);
-    }
+		return true;
+    } else return false;
 }
 
 #endif // REPORT_CLIMATE
@@ -409,7 +413,7 @@ void indication( const indication_t ind )
 
 void presentation()
 {
-	static char rev[] = "$Rev: 1305 $";
+	static char rev[] = "$Rev: 1314 $";
 	char* p = strchr(rev+6,'$');
 	if (p) *p=0;
 
@@ -512,7 +516,7 @@ void setup()
 	//           1...5...10........20........30........40        50        60  63
 	//           |   |    |    |    |    |    |    |    |    |    |    |    |   |
 	//                                                            23:59:01"
-	DEBUG_PRINT("$Id: MyGasMeterX.cpp 1305 2021-12-09 08:47:13Z  $ " __TIME__ "\r\n" ) ;
+	DEBUG_PRINT("$Id: MyGasMeterX.cpp 1314 2021-12-11 13:02:51Z  $ " __TIME__ "\r\n" ) ;
     DEBUG_PRINTF("Node: %d\r\n", MY_NODE_ID);
 	Serial.flush();
 }
