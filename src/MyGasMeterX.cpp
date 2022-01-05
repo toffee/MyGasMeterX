@@ -6,7 +6,7 @@
  * Created		: 03-Oct-2019
  * Tabsize		: 4
  * 
- * This Revision: $Id: MyGasMeterX.cpp 1314 2021-12-11 13:02:51Z  $
+ * This Revision: $Id: MyGasMeterX.cpp 1321 2022-01-05 13:18:18Z  $
  */
 
 /*
@@ -413,7 +413,7 @@ void indication( const indication_t ind )
 
 void presentation()
 {
-	static char rev[] = "$Rev: 1314 $";
+	static char rev[] = "$Rev: 1321 $";
 	char* p = strchr(rev+6,'$');
 	if (p) *p=0;
 
@@ -516,7 +516,7 @@ void setup()
 	//           1...5...10........20........30........40        50        60  63
 	//           |   |    |    |    |    |    |    |    |    |    |    |    |   |
 	//                                                            23:59:01"
-	DEBUG_PRINT("$Id: MyGasMeterX.cpp 1314 2021-12-11 13:02:51Z  $ " __TIME__ "\r\n" ) ;
+	DEBUG_PRINT("$Id: MyGasMeterX.cpp 1321 2022-01-05 13:18:18Z  $ " __TIME__ "\r\n" ) ;
     DEBUG_PRINTF("Node: %d\r\n", MY_NODE_ID);
 	Serial.flush();
 }
@@ -570,8 +570,8 @@ void loop()
 		if (absValid) {
 			liters = absPulseCount * LITERS_PER_CLICK;
 			send(msgGasVolume.set(liters));
-			transportSleeping = false;
 		}
+		transportSleeping = false;
 		countPerHour = 0;
 	}
 
