@@ -78,7 +78,9 @@
 
 #define MY_INDICATION_HANDLER
 #include "mysensors_conf.h"
+#ifdef MY_SENSORS_ON
 #include <MySensors.h>
+#endif
 
 #ifdef REPORT_CLIMATE
 	#include <Adafruit_Sensor.h>
@@ -146,10 +148,12 @@
 //===========================================================================
 #pragma region Global variables
 
+#ifdef MY_SENSORS_ON
 MyMessage msgGasFlow(SENSOR_ID_GAS, V_FLOW);		// in l/h			my/+/stat/120/81/1/0/34
 MyMessage msgGasVolume(SENSOR_ID_GAS, V_VOLUME);	// l accumulated	my/+/stat/120/81/1/0/35
 MyMessage msgAbsCount(SENSOR_ID_GAS,V_VAR1);		// absolute clicks  my/+/stat/120/81/1/0/24 or my/cmnd/120/81/1/0/24
 MyMessage msgRelCount(SENSOR_ID_GAS,V_VAR2);		// clicks since last report  my/+/stat/120/81/1/0/25
+#endif
 
 #ifdef REPORT_CLIMATE
 	MyMessage msgTemperature(SENSOR_ID_TEMPERATURE, V_TEMP);
@@ -266,6 +270,7 @@ bool report_Climate()
 //===========================================================================
 #pragma region ----- battery stuff
 
+#ifdef MY_SENSORS_ON
 #define SENSOR_ID_VCC 		99 		// battery voltage
 
 MyMessage msgVCC( SENSOR_ID_VCC, V_VOLTAGE );
@@ -290,6 +295,7 @@ void reportBatteryVoltage()
 	DEBUG_PRINTF("Bat: %u mV = %d%%\r\n", batteryVoltage, percent);
 	sendBatteryLevel(percent);
 }
+#endif
 
 //-----------------------------------------------------------------------------
 #pragma endregion
@@ -341,15 +347,19 @@ void myISR(void)
  */
 void snooze(bool allowTransportDisable)
 {
+	#ifdef MY_SENSORS_ON
 	while (!isTransportReady()) { _process(); }
 	if (allowTransportDisable && !transportSleeping) {
 		transportDisable();
 		transportSleeping = true;
 	}
+	#endif
 	Serial.flush();
 
 	for (uint8_t t=0; t<(ISR_RATE/LOOP_RATE); t++) {
+		#ifdef MY_SENSORS_ON
 		indication(INDICATION_SLEEP);
+		#endif
 		set_sleep_mode(SLEEP_MODE_PWR_SAVE);	
 		cli();
 		sleep_enable();
@@ -359,7 +369,9 @@ void snooze(bool allowTransportDisable)
 		sei();
 		sleep_cpu();
 		sleep_disable();
+		#ifdef MY_SENSORS_ON
 		indication(INDICATION_WAKEUP);
+		#endif
 	}
 }
 
@@ -399,6 +411,8 @@ void reportLux()
 #pragma endregion
 //===========================================================================
 #pragma region MySensor framework functions
+
+#ifdef MY_SENSORS_ON
 
 void indication( const indication_t ind )
 {
@@ -451,6 +465,8 @@ void receive(const MyMessage &message)
 	}
 }
 
+#endif
+
 //---------------------------------------------------------------------------
 
 /**
@@ -491,8 +507,13 @@ void preHwInit()
 
 void setup()
 {
-    basicSetup();
+	#ifndef MY_SENSORS_ON
+	Serial.begin(9600ul);
+	preHwInit();
+	#endif
+	basicSetup();
 
+    #ifdef MY_SENSORS_ON
 	// when entering setup(), a lot of RF packets have just been transmitted, so
 	// let's wait a bit to let the battery voltage recover, then report
 	sleep(100);
@@ -501,13 +522,14 @@ void setup()
 	// Fetch last known pulse count value from gw
 	request(SENSOR_ID_GAS, V_VAR1);
 	send(msgAbsCount.set(0));	// this triggers sending the "real" value
+	#endif
 
 	timer2.begin(ISR_RATE, 0, myISR, 32768ul, true);		// async mode, 32768 Hz clock
     timer2.handle_millis();
     TIMSK0 = 0;							// disable all T0 interrupts (Arduino millis() )
 	timer2.start();		// start debouncing the switch
 
-    t_last_sent = timer2.get_millis();
+	t_last_sent = timer2.get_millis();
 
 #ifdef REPORT_CLIMATE
 	validBME = init_Climate();
@@ -543,16 +565,24 @@ void loop()
 				pulseCount = 0;
 			}
 			absPulseCount += count;
+			#ifdef MY_SENSORS_ON
 			send(msgRelCount.set(count));
 			send(msgAbsCount.set(absPulseCount));
+			#else
+			DEBUG_PRINTF("[SERIAL]Count %ld Abs Count %ld\r\n", count, absPulseCount);
+			#endif
 		} else {
 			// only send relative counts
 			ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 				count = pulseCount;
 			}
+			#ifdef MY_SENSORS_ON
 			send(msgRelCount.set(count));
             DEBUG_PRINT("Requesting AbsCount\r\n");
 			request(SENSOR_ID_GAS, V_VAR1);
+			#else
+			DEBUG_PRINTF("[SERIAL]Count %ld\r\n", count);
+			#endif
 		}
 		transportSleeping = false;
 		oldPulseCount = count;
@@ -566,10 +596,18 @@ void loop()
 		t_hourly = t_now;
 		uint32_t liters;
 		liters = countPerHour * LITERS_PER_CLICK;
+		#ifdef MY_SENSORS_ON
 		send(msgGasFlow.set(liters));
+		#else
+		DEBUG_PRINTF("[SERIAL]Liters %ld\r\n", liters);
+		#endif
 		if (absValid) {
 			liters = absPulseCount * LITERS_PER_CLICK;
+			#ifdef MY_SENSORS_ON
 			send(msgGasVolume.set(liters));
+			#else
+			DEBUG_PRINTF("[SERIAL]Liters %ld\r\n", liters);
+			#endif
 		}
 		transportSleeping = false;
 		countPerHour = 0;
@@ -589,7 +627,11 @@ void loop()
 	// once a day or so, report battery status
   	if ((unsigned long)(t_now - t_battery_report) >= BATTERY_REPORT_INTERVAL) {
 		t_battery_report = t_now;
+		#ifdef MY_SENSORS_ON
 		reportBatteryVoltage();
+		#else
+		DEBUG_PRINT("[SERIAL]reportBatteryVoltage\r\n");
+		#endif
 		transportSleeping = false;
 	}
 
